@@ -22,6 +22,27 @@ public class Main {
     }
 
     public static void main(String[] args) throws InterruptedException {
+
+        Thread freqlog = new Thread(() -> {
+            while (!Thread.interrupted()) {
+                synchronized (sizeToFreq) {
+                    for (Map.Entry<Integer, Integer> repetition : sizeToFreq.entrySet()) {
+                        if (maxRepeat < repetition.getValue()) {
+                            maxRepeat = repetition.getValue();
+                            maxRepeatKey = repetition.getKey();
+                        }
+                    }
+                    System.out.format("Самое частое количество повторений %d (встретилось %d раз)\n", maxRepeatKey, maxRepeat);
+                    try {
+                        sizeToFreq.wait();
+                    } catch (InterruptedException e) {
+                        break;
+                    }
+                }
+            }
+        });
+        freqlog.start();
+
         for (int i = 0; i < THREAD_COUNT; i++) {
             Thread thread = new Thread(() -> {
                 String route = generateRoute(LETTERS, LENGHT);
@@ -34,16 +55,18 @@ public class Main {
                         sizeToFreq.put(repeatR, 1);
                     } else {
                         sizeToFreq.put(repeatR, sizeToFreq.get(repeatR) + 1);
-                        if (maxRepeat <= sizeToFreq.get(repeatR)) {
-                            maxRepeat = sizeToFreq.get(repeatR);
-                            maxRepeatKey = repeatR;
-                        }
                     }
+                    sizeToFreq.notify();
                 }
             });
             thread.start();
             thread.join();
+            Thread.sleep(1);
         }
+        freqlog.interrupt();
+        System.out.println("Конец подсчета!!!");
+        System.out.println();
+        System.out.println("-------Результат-------");
         System.out.format("Самое частое количество повторений %d (встретилось %d раз)\n", maxRepeatKey, maxRepeat);
         System.out.println("Другие размеры:");
         for (Map.Entry<Integer, Integer> repetition : sizeToFreq.entrySet()) {
